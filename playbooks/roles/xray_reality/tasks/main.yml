@@ -20,17 +20,6 @@
       - ufw
     state: present
     update_cache: true
-  when:
-    - ansible_os_family == "Debian"
-
-- name: Install RedHat dependencies
-  ansible.builtin.package:
-    name:
-      - curl
-      - ca-certificates
-    state: present
-  when:
-    - ansible_os_family == "RedHat"
 
 - name: Ensure Xray log directory exists
   ansible.builtin.file:
@@ -39,16 +28,6 @@
     owner: nobody
     group: nogroup
     mode: "0755"
-  when: ansible_os_family == "Debian"
-
-- name: Ensure Xray log directory exists on RedHat
-  ansible.builtin.file:
-    path: "{{ xray_log_dir }}"
-    state: directory
-    owner: nobody
-    group: nobody
-    mode: "0755"
-  when: ansible_os_family == "RedHat"
 
 - name: Install Xray using official installer
   ansible.builtin.shell: |
@@ -64,16 +43,16 @@
   ansible.builtin.file:
     path: "{{ xray_install_dir }}"
     state: directory
-    owner: root
-    group: root
+    owner: nobody
+    group: nogroup
     mode: "0755"
 
 - name: Deploy Xray config
   ansible.builtin.template:
     src: config.json.j2
     dest: "{{ xray_config_path }}"
-    owner: root
-    group: root
+    owner: nobody
+    group: nogroup
     mode: "0640"
     backup: true
   notify: Restart xray
@@ -83,6 +62,11 @@
     cmd: /usr/local/bin/xray -test -config {{ xray_config_path }}
   register: xray_test
   changed_when: false
+
+- name: Remove log
+  ansible.builtin.file:
+    path: "/var/log/xray/error.log"
+    state: absent
 
 - name: Enable and start Xray
   ansible.builtin.systemd:
@@ -99,7 +83,6 @@
   when:
     - xray_manage_firewall
     - xray_enable_ufw
-    - ansible_os_family == "Debian"
 
 - name: Allow Xray port in UFW
   ansible.builtin.command:
@@ -109,7 +92,6 @@
   when:
     - xray_manage_firewall
     - xray_enable_ufw
-    - ansible_os_family == "Debian"
 
 - name: Enable UFW
   ansible.builtin.command:
@@ -119,7 +101,6 @@
   when:
     - xray_manage_firewall
     - xray_enable_ufw
-    - ansible_os_family == "Debian"
 
 - name: Print server connection info
   ansible.builtin.debug:
