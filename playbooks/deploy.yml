@@ -1,0 +1,6 @@
+---
+- name: Deploy Xray REALITY server
+  hosts: all
+  become: true
+  roles:
+    - xray_reality

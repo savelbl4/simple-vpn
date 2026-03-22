@@ -1,0 +1,132 @@
+---
+- name: Assert required secrets are provided
+  ansible.builtin.assert:
+    that:
+      - xray_uuid is defined
+      - xray_uuid | length > 30
+      - xray_reality_private_key is defined
+      - xray_reality_private_key | length > 10
+      - xray_reality_public_key is defined
+      - xray_reality_public_key | length > 10
+      - xray_reality_short_ids is defined
+      - xray_reality_short_ids | length > 0
+    fail_msg: "Required Xray secrets are missing. Check vault.yml"
+
+- name: Install Debian dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+      - ufw
+    state: present
+    update_cache: true
+  when:
+    - ansible_os_family == "Debian"
+
+- name: Install RedHat dependencies
+  ansible.builtin.package:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
+
+- name: Ensure Xray log directory exists
+  ansible.builtin.file:
+    path: "{{ xray_log_dir }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: "0755"
+  when: ansible_os_family == "Debian"
+
+- name: Ensure Xray log directory exists on RedHat
+  ansible.builtin.file:
+    path: "{{ xray_log_dir }}"
+    state: directory
+    owner: nobody
+    group: nobody
+    mode: "0755"
+  when: ansible_os_family == "RedHat"
+
+- name: Install Xray using official installer
+  ansible.builtin.shell: |
+    set -euo pipefail
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+  args:
+    creates: /usr/local/bin/xray
+    executable: /bin/bash
+  register: xray_install
+  changed_when: xray_install.rc == 0
+
+- name: Ensure Xray config directory exists
+  ansible.builtin.file:
+    path: "{{ xray_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy Xray config
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: "{{ xray_config_path }}"
+    owner: root
+    group: root
+    mode: "0640"
+    backup: true
+  notify: Restart xray
+
+- name: Validate Xray config
+  ansible.builtin.command:
+    cmd: /usr/local/bin/xray -test -config {{ xray_config_path }}
+  register: xray_test
+  changed_when: false
+
+- name: Enable and start Xray
+  ansible.builtin.systemd:
+    name: xray
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Allow SSH in UFW
+  ansible.builtin.command:
+    cmd: ufw allow {{ xray_ssh_port }}/tcp
+  register: ufw_ssh
+  changed_when: "'Skipping adding existing rule' not in (ufw_ssh.stdout ~ ufw_ssh.stderr)"
+  when:
+    - xray_manage_firewall
+    - xray_enable_ufw
+    - ansible_os_family == "Debian"
+
+- name: Allow Xray port in UFW
+  ansible.builtin.command:
+    cmd: ufw allow {{ xray_vless_port }}/tcp
+  register: ufw_xray
+  changed_when: "'Skipping adding existing rule' not in (ufw_xray.stdout ~ ufw_xray.stderr)"
+  when:
+    - xray_manage_firewall
+    - xray_enable_ufw
+    - ansible_os_family == "Debian"
+
+- name: Enable UFW
+  ansible.builtin.command:
+    cmd: ufw --force enable
+  register: ufw_enable
+  changed_when: "'Firewall is active' not in (ufw_enable.stdout ~ ufw_enable.stderr)"
+  when:
+    - xray_manage_firewall
+    - xray_enable_ufw
+    - ansible_os_family == "Debian"
+
+- name: Print server connection info
+  ansible.builtin.debug:
+    msg:
+      - "Server: {{ xray_client_server }}"
+      - "Port: {{ xray_vless_port }}"
+      - "UUID: {{ xray_uuid }}"
+      - "PublicKey: {{ xray_reality_public_key }}"
+      - "ShortIds: {{ xray_reality_short_ids | join(',') }}"
+      - "ServerName: {{ xray_reality_server_name }}"

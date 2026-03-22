@@ -1,0 +1,7 @@
+.DS_Store
+__pycache__
+._*
+*~
+.idea/
+secrets.yml
+.vault-pass.txt

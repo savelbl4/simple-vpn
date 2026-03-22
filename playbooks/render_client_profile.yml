@@ -1,0 +1,21 @@
+---
+- name: Render local client profile
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ensure local artifacts directory exists
+      ansible.builtin.file:
+        path: "{{ xray_local_output_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      run_once: false
+      become: false
+
+    - name: Render client profile locally
+      ansible.builtin.template:
+        src: "client-config.json.j2"
+        dest: "{{ xray_local_output_dir }}/{{ inventory_hostname }}-client.json"
+        mode: "0600"
+      delegate_to: localhost
+      become: false

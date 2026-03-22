@@ -1,0 +1,58 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "error": "{{ xray_error_log }}"
+  },
+  "inbounds": [
+    {
+      "listen": "0.0.0.0",
+      "port": {{ xray_vless_port }},
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "{{ xray_uuid }}",
+            "flow": "{{ xray_vless_flow }}"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "{{ xray_reality_dest }}",
+          "xver": 0,
+          "serverNames": [
+            "{{ xray_reality_server_name }}"
+          ],
+          "privateKey": "{{ xray_reality_private_key }}",
+          "shortIds": [
+{% for sid in xray_reality_short_ids %}
+            "{{ sid }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+          ]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
+    }
+  ]
+}

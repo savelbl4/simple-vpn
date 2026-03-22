@@ -1,0 +1,38 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "{{ xray_client_server }}",
+            "port": {{ xray_vless_port }},
+            "users": [
+              {
+                "id": "{{ xray_uuid }}",
+                "encryption": "none",
+                "flow": "{{ xray_vless_flow }}"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "fingerprint": "{{ xray_client_fingerprint }}",
+          "serverName": "{{ xray_reality_server_name }}",
+          "publicKey": "{{ xray_reality_public_key }}",
+          "shortId": "{{ xray_reality_short_ids[0] }}",
+          "spiderX": "{{ xray_client_spider_x }}"
+        }
+      }
+    }
+  ]
+}
